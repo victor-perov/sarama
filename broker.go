@@ -362,7 +362,17 @@ func (b *Broker) Fetch(request *FetchRequest) (*FetchResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// observation of request throttle time.
+	//
+	// I assume that requested partitions (keys in the blocks) and response
+	// partitions are the same.
+	if response != nil {
+		for topic, blocks := range response.Blocks {
+			for partition := range blocks {
+				bMetrics.fetchThrottleMs.WithLabelValues(topic, strconv.Itoa(int(partition)), strconv.Itoa(int(b.ID()))).Observe(float64(response.ThrottleTime.Milliseconds()))
+			}
+		}
+	}
 	return response, nil
 }
 

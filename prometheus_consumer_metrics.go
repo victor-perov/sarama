@@ -17,12 +17,12 @@ var cMetrics *prometheusConsumerMetrics
 
 func init() {
 	fetchRequestDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: bNamespace,
-		Subsystem: bSubsystem,
+		Namespace: cNamespace,
+		Subsystem: cSubsystem,
 		Name:      "fetch_request_duration_seconds",
 		Help:      "Duration of send() requests in seconds",
 		Buckets:   []float64{1, 2, 5, 10, 60, 120, 300, 600, 900, 1800},
-	}, []string{"partition", "broker"})
+	}, []string{"topic", "partition", "broker"})
 
 	prometheus.MustRegister(fetchRequestDuration)
 

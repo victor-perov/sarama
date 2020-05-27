@@ -790,7 +790,7 @@ func (bc *brokerConsumer) subscriptionConsumer() {
 		bc.acks.Add(len(bc.subscriptions))
 		for child := range bc.subscriptions {
 			child.feeder <- response
-			cMetrics.fetchRequestDuration.WithLabelValues(strconv.Itoa(int(child.partition)), brokerID).Observe(finish.Seconds())
+			cMetrics.fetchRequestDuration.WithLabelValues(child.topic, strconv.Itoa(int(child.partition)), brokerID).Observe(finish.Seconds())
 		}
 		bc.acks.Wait()
 		bc.handleResponses()
