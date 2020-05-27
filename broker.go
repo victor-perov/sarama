@@ -394,7 +394,9 @@ func (b *Broker) FetchOffset(request *OffsetFetchRequest) (*OffsetFetchResponse,
 func (b *Broker) JoinGroup(request *JoinGroupRequest) (*JoinGroupResponse, error) {
 	response := new(JoinGroupResponse)
 
+	start := time.Now()
 	err := b.sendAndReceive(request, response)
+	bMetrics.joinGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +408,9 @@ func (b *Broker) JoinGroup(request *JoinGroupRequest) (*JoinGroupResponse, error
 func (b *Broker) SyncGroup(request *SyncGroupRequest) (*SyncGroupResponse, error) {
 	response := new(SyncGroupResponse)
 
+	start := time.Now()
 	err := b.sendAndReceive(request, response)
+	bMetrics.syncGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +422,9 @@ func (b *Broker) SyncGroup(request *SyncGroupRequest) (*SyncGroupResponse, error
 func (b *Broker) LeaveGroup(request *LeaveGroupRequest) (*LeaveGroupResponse, error) {
 	response := new(LeaveGroupResponse)
 
+	start := time.Now()
 	err := b.sendAndReceive(request, response)
+	bMetrics.leaveGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +436,9 @@ func (b *Broker) LeaveGroup(request *LeaveGroupRequest) (*LeaveGroupResponse, er
 func (b *Broker) Heartbeat(request *HeartbeatRequest) (*HeartbeatResponse, error) {
 	response := new(HeartbeatResponse)
 
+	start := time.Now()
 	err := b.sendAndReceive(request, response)
+	bMetrics.heartBeatDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -718,6 +726,7 @@ func (b *Broker) send(rb protocolBody, promiseResponse bool) (*responsePromise, 
 	if err != nil {
 		return nil, err
 	}
+	bMetrics.requestDuration.WithLabelValues(strconv.Itoa(int(rb.key())), strconv.Itoa(int(b.ID()))).Observe(time.Since(requestTime).Seconds())
 	b.correlationID++
 
 	if !promiseResponse {
@@ -735,6 +744,7 @@ func (b *Broker) send(rb protocolBody, promiseResponse bool) (*responsePromise, 
 func (b *Broker) sendAndReceive(req protocolBody, res versionedDecoder) error {
 	promise, err := b.send(req, res != nil)
 	if err != nil {
+		bMetrics.errorsTotal.WithLabelValues(strconv.Itoa(int(req.key())), strconv.Itoa(int(b.ID()))).Inc()
 		return err
 	}
 

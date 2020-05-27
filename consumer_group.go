@@ -185,6 +185,7 @@ func (c *consumerGroup) Consume(ctx context.Context, topics []string, handler Co
 }
 
 func (c *consumerGroup) retryNewSession(ctx context.Context, topics []string, handler ConsumerGroupHandler, retries int, refreshCoordinator bool) (*consumerGroupSession, error) {
+	cgMetrics.sessionRetriesTotal.WithLabelValues(c.memberID, c.groupID).Inc()
 	select {
 	case <-c.closed:
 		return nil, ErrClosedConsumerGroup

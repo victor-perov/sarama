@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -775,17 +776,21 @@ func (bc *brokerConsumer) subscriptionConsumer() {
 			continue
 		}
 
+		start := time.Now()
 		response, err := bc.fetchNewMessages()
+		finish := time.Since(start)
 
 		if err != nil {
 			Logger.Printf("consumer/broker/%d disconnecting due to error processing FetchRequest: %s\n", bc.broker.ID(), err)
 			bc.abort(err)
 			return
 		}
+		brokerID := strconv.Itoa(int(bc.broker.ID()))
 
 		bc.acks.Add(len(bc.subscriptions))
 		for child := range bc.subscriptions {
 			child.feeder <- response
+			cMetrics.fetchRequestDuration.WithLabelValues(strconv.Itoa(int(child.partition)), brokerID).Observe(finish.Seconds())
 		}
 		bc.acks.Wait()
 		bc.handleResponses()
