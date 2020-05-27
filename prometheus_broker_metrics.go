@@ -10,8 +10,12 @@ const (
 )
 
 type prometheusBrokerMetrics struct {
-	errorsTotal        *prometheus.CounterVec
-	requestDuration    *prometheus.HistogramVec
+	errorsTotal *prometheus.CounterVec
+
+	reqSendDuration    *prometheus.HistogramVec
+	reqReceiveDuration *prometheus.HistogramVec
+	reqReceiveBytes    *prometheus.HistogramVec
+
 	joinGroupDuration  *prometheus.HistogramVec
 	syncGroupDuration  *prometheus.HistogramVec
 	heartBeatDuration  *prometheus.HistogramVec
@@ -28,12 +32,27 @@ func init() {
 		Name:      "errors_total",
 		Help:      "Total number of received errors on send()",
 	}, []string{"request_type", "broker"})
-	requestDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+
+	reqSendDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: bNamespace,
 		Subsystem: bSubsystem,
-		Name:      "request_duration_seconds",
-		Help:      "Duration of send() requests in seconds",
+		Name:      "request_send_duration_seconds",
+		Help:      "Duration of write request into connection with send() method in seconds",
 		Buckets:   []float64{1, 2, 5, 10, 60, 120, 300, 600, 900, 1800},
+	}, []string{"request_type", "broker"})
+	reqReceiveDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: bNamespace,
+		Subsystem: bSubsystem,
+		Name:      "request_receive_duration_seconds",
+		Help:      "Elapsed time of reading header (first 8b) and body from connection by send() in seconds",
+		Buckets:   []float64{1, 2, 5, 10, 60, 120, 300, 600, 900, 1800},
+	}, []string{"request_type", "broker"})
+	reqReceiveBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: bNamespace,
+		Subsystem: bSubsystem,
+		Name:      "request_receive_bytes",
+		Help:      "Amount of bytes that was read from connection",
+		Buckets:   []float64{10, 100, 1000, 5000, 10000, 1e6, 1e7},
 	}, []string{"request_type", "broker"})
 
 	joinGroupDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -78,7 +97,9 @@ func init() {
 
 	prometheus.MustRegister(
 		errorsTotal,
-		requestDuration,
+		reqSendDuration,
+		reqReceiveDuration,
+		reqReceiveBytes,
 		joinGroupDuration,
 		syncGroupDuration,
 		heartBeatDuration,
@@ -87,8 +108,12 @@ func init() {
 	)
 
 	bMetrics = &prometheusBrokerMetrics{
-		errorsTotal:        errorsTotal,
-		requestDuration:    requestDuration,
+		errorsTotal: errorsTotal,
+
+		reqSendDuration:    reqSendDuration,
+		reqReceiveDuration: reqReceiveDuration,
+		reqReceiveBytes:    reqReceiveBytes,
+
 		joinGroupDuration:  joinGroupDuration,
 		syncGroupDuration:  syncGroupDuration,
 		heartBeatDuration:  heartBeatDuration,

@@ -117,6 +117,7 @@ type SCRAMClient interface {
 type responsePromise struct {
 	requestTime   time.Time
 	correlationID int32
+	requestKey    int16
 	packets       chan []byte
 	errors        chan error
 }
@@ -736,7 +737,7 @@ func (b *Broker) send(rb protocolBody, promiseResponse bool) (*responsePromise, 
 	if err != nil {
 		return nil, err
 	}
-	bMetrics.requestDuration.WithLabelValues(strconv.Itoa(int(rb.key())), strconv.Itoa(int(b.ID()))).Observe(time.Since(requestTime).Seconds())
+	bMetrics.reqSendDuration.WithLabelValues(strconv.Itoa(int(rb.key())), strconv.Itoa(int(b.ID()))).Observe(time.Since(requestTime).Seconds())
 	b.correlationID++
 
 	if !promiseResponse {
@@ -745,7 +746,7 @@ func (b *Broker) send(rb protocolBody, promiseResponse bool) (*responsePromise, 
 		return nil, nil
 	}
 
-	promise := responsePromise{requestTime, req.correlationID, make(chan []byte), make(chan error)}
+	promise := responsePromise{requestTime, req.correlationID, rb.key(), make(chan []byte), make(chan error)}
 	b.responses <- promise
 
 	return &promise, nil
@@ -869,6 +870,8 @@ func (b *Broker) responseReceiver() {
 
 		buf := make([]byte, decodedHeader.length-4)
 		bytesReadBody, err := b.readFull(buf)
+		bMetrics.reqReceiveDuration.WithLabelValues(strconv.Itoa(int(response.requestKey)), strconv.Itoa(int(b.ID()))).Observe(time.Since(response.requestTime).Seconds())
+		bMetrics.reqReceiveBytes.WithLabelValues(strconv.Itoa(int(response.requestKey)), strconv.Itoa(int(b.ID()))).Observe(float64(bytesReadHeader + bytesReadBody))
 		b.updateIncomingCommunicationMetrics(bytesReadHeader+bytesReadBody, requestLatency)
 		if err != nil {
 			dead = err
