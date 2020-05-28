@@ -368,9 +368,10 @@ func (b *Broker) Fetch(request *FetchRequest) (*FetchResponse, error) {
 	// I assume that requested partitions (keys in the blocks) and response
 	// partitions are the same.
 	if response != nil {
+		throttle := response.ThrottleTime.Seconds()
 		for topic, blocks := range response.Blocks {
 			for partition := range blocks {
-				bMetrics.fetchThrottleMs.WithLabelValues(topic, strconv.Itoa(int(partition)), strconv.Itoa(int(b.ID()))).Observe(float64(response.ThrottleTime.Milliseconds()))
+				bMetrics.fetchThrottleTime.WithLabelValues(topic, strconv.Itoa(int(partition)), strconv.Itoa(int(b.ID()))).Observe(throttle)
 			}
 		}
 	}
@@ -405,9 +406,7 @@ func (b *Broker) FetchOffset(request *OffsetFetchRequest) (*OffsetFetchResponse,
 func (b *Broker) JoinGroup(request *JoinGroupRequest) (*JoinGroupResponse, error) {
 	response := new(JoinGroupResponse)
 
-	start := time.Now()
 	err := b.sendAndReceive(request, response)
-	bMetrics.joinGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -419,9 +418,7 @@ func (b *Broker) JoinGroup(request *JoinGroupRequest) (*JoinGroupResponse, error
 func (b *Broker) SyncGroup(request *SyncGroupRequest) (*SyncGroupResponse, error) {
 	response := new(SyncGroupResponse)
 
-	start := time.Now()
 	err := b.sendAndReceive(request, response)
-	bMetrics.syncGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -433,9 +430,7 @@ func (b *Broker) SyncGroup(request *SyncGroupRequest) (*SyncGroupResponse, error
 func (b *Broker) LeaveGroup(request *LeaveGroupRequest) (*LeaveGroupResponse, error) {
 	response := new(LeaveGroupResponse)
 
-	start := time.Now()
 	err := b.sendAndReceive(request, response)
-	bMetrics.leaveGroupDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -447,9 +442,7 @@ func (b *Broker) LeaveGroup(request *LeaveGroupRequest) (*LeaveGroupResponse, er
 func (b *Broker) Heartbeat(request *HeartbeatRequest) (*HeartbeatResponse, error) {
 	response := new(HeartbeatResponse)
 
-	start := time.Now()
 	err := b.sendAndReceive(request, response)
-	bMetrics.heartBeatDuration.WithLabelValues(request.MemberId, request.GroupId, strconv.Itoa(int(b.ID()))).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +730,6 @@ func (b *Broker) send(rb protocolBody, promiseResponse bool) (*responsePromise, 
 	if err != nil {
 		return nil, err
 	}
-	bMetrics.reqSendDuration.WithLabelValues(strconv.Itoa(int(rb.key())), strconv.Itoa(int(b.ID()))).Observe(time.Since(requestTime).Seconds())
 	b.correlationID++
 
 	if !promiseResponse {
@@ -870,8 +862,6 @@ func (b *Broker) responseReceiver() {
 
 		buf := make([]byte, decodedHeader.length-4)
 		bytesReadBody, err := b.readFull(buf)
-		bMetrics.reqReceiveDuration.WithLabelValues(strconv.Itoa(int(response.requestKey)), strconv.Itoa(int(b.ID()))).Observe(time.Since(response.requestTime).Seconds())
-		bMetrics.reqReceiveBytes.WithLabelValues(strconv.Itoa(int(response.requestKey)), strconv.Itoa(int(b.ID()))).Observe(float64(bytesReadHeader + bytesReadBody))
 		b.updateIncomingCommunicationMetrics(bytesReadHeader+bytesReadBody, requestLatency)
 		if err != nil {
 			dead = err
