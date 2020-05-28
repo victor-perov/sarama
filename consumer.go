@@ -585,7 +585,10 @@ func (child *partitionConsumer) parseResponse(response *FetchResponse) ([]*Consu
 		return nil, err
 	}
 
+	partition := strconv.Itoa(int(child.partition))
+
 	consumerBatchSizeMetric.Update(int64(nRecs))
+	cMetrics.blockSizeRecords.WithLabelValues(child.topic, partition).Observe(float64(nRecs))
 
 	if nRecs == 0 {
 		partialTrailingMessage, err := block.isPartial()
@@ -611,12 +614,15 @@ func (child *partitionConsumer) parseResponse(response *FetchResponse) ([]*Consu
 			}
 		}
 
+		cMetrics.fetchSizeBytes.WithLabelValues(child.topic, partition).Observe(float64(child.fetchSize))
 		return nil, nil
 	}
 
 	// we got messages, reset our fetch size in case it was increased for a previous request
 	child.fetchSize = child.conf.Consumer.Fetch.Default
 	atomic.StoreInt64(&child.highWaterMarkOffset, block.HighWaterMarkOffset)
+
+	cMetrics.fetchSizeBytes.WithLabelValues(child.topic, partition).Observe(float64(child.fetchSize))
 
 	// abortedProducerIDs contains producerID which message should be ignored as uncommitted
 	// - producerID are added when the partitionConsumer iterate over the offset at which an aborted transaction begins (abortedTransaction.FirstOffset)

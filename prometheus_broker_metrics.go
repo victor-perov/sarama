@@ -19,7 +19,7 @@ type prometheusBrokerMetrics struct {
 	joinGroupDuration  *prometheus.HistogramVec
 	syncGroupDuration  *prometheus.HistogramVec
 	heartBeatDuration  *prometheus.HistogramVec
-	fetchThrottleMs    *prometheus.HistogramVec
+	fetchThrottleTime  *prometheus.HistogramVec
 	leaveGroupDuration *prometheus.HistogramVec
 }
 
@@ -79,11 +79,11 @@ func init() {
 		Buckets:   []float64{1, 2, 5, 10, 60, 120, 300, 600, 900, 1800},
 	}, []string{"member", "group", "broker"})
 
-	fetchThrottleMs := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	fetchThrottleTime := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: bNamespace,
 		Subsystem: bSubsystem,
-		Name:      "fetch_throttle_milliseconds",
-		Help:      "Broker Fetch() request duration in seconds",
+		Name:      "fetch_throttle_seconds",
+		Help:      "Broker Fetch() throttle time in seconds",
 		Buckets:   []float64{1, 2, 5, 10, 60, 120, 300, 600, 900, 1800},
 	}, []string{"topic", "partition", "broker"})
 
@@ -103,7 +103,7 @@ func init() {
 		joinGroupDuration,
 		syncGroupDuration,
 		heartBeatDuration,
-		fetchThrottleMs,
+		fetchThrottleTime,
 		leaveGroupDuration,
 	)
 
@@ -117,7 +117,7 @@ func init() {
 		joinGroupDuration:  joinGroupDuration,
 		syncGroupDuration:  syncGroupDuration,
 		heartBeatDuration:  heartBeatDuration,
-		fetchThrottleMs:    fetchThrottleMs,
+		fetchThrottleTime:  fetchThrottleTime,
 		leaveGroupDuration: leaveGroupDuration,
 	}
 }

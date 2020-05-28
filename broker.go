@@ -368,9 +368,10 @@ func (b *Broker) Fetch(request *FetchRequest) (*FetchResponse, error) {
 	// I assume that requested partitions (keys in the blocks) and response
 	// partitions are the same.
 	if response != nil {
+		throttle := response.ThrottleTime.Seconds()
 		for topic, blocks := range response.Blocks {
 			for partition := range blocks {
-				bMetrics.fetchThrottleMs.WithLabelValues(topic, strconv.Itoa(int(partition)), strconv.Itoa(int(b.ID()))).Observe(float64(response.ThrottleTime.Milliseconds()))
+				bMetrics.fetchThrottleTime.WithLabelValues(topic, strconv.Itoa(int(partition)), strconv.Itoa(int(b.ID()))).Observe(throttle)
 			}
 		}
 	}
