@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -583,8 +584,9 @@ func (child *partitionConsumer) parseResponse(response *FetchResponse) ([]*Consu
 	if err != nil {
 		return nil, err
 	}
-
 	consumerBatchSizeMetric.Update(int64(nRecs))
+	partition := strconv.Itoa(int(child.partition))
+	cMetrics.blockSizeRecords.WithLabelValues(child.topic, partition).Observe(float64(nRecs))
 
 	if nRecs == 0 {
 		partialTrailingMessage, err := block.isPartial()
@@ -609,7 +611,7 @@ func (child *partitionConsumer) parseResponse(response *FetchResponse) ([]*Consu
 				}
 			}
 		}
-
+		cMetrics.fetchSizeBytes.WithLabelValues(child.topic, partition).Observe(float64(child.fetchSize))
 		return nil, nil
 	}
 
@@ -775,17 +777,20 @@ func (bc *brokerConsumer) subscriptionConsumer() {
 			continue
 		}
 
+		start := time.Now()
 		response, err := bc.fetchNewMessages()
+		finish := time.Since(start)
 
 		if err != nil {
 			Logger.Printf("consumer/broker/%d disconnecting due to error processing FetchRequest: %s\n", bc.broker.ID(), err)
 			bc.abort(err)
 			return
 		}
-
+		brokerID := strconv.Itoa(int(bc.broker.ID()))
 		bc.acks.Add(len(bc.subscriptions))
 		for child := range bc.subscriptions {
 			child.feeder <- response
+			cMetrics.fetchRequestDuration.WithLabelValues(child.topic, strconv.Itoa(int(child.partition)), brokerID).Observe(finish.Seconds())
 		}
 		bc.acks.Wait()
 		bc.handleResponses()
